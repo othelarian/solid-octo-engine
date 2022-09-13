@@ -6,6 +6,8 @@ package-lock.json
 */target
 /releases
 
+config.coffee
+
 out/
 soe_itch-*.zip
 

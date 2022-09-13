@@ -15,14 +15,12 @@ serveStatic = require 'serve-static'
 
 # OPTIONS #############################
 
+option '-n', '--nostart', 'cancel nwjs start (ONLY for `cake heavy`'
 option '-r', '--release', 'set compilation mode to release'
 
 # GLOBAL VARS #########################
 
-dest = ''
-envRelease = false
-watching = false
-webSources = 'web'
+cfg = require('./config.default').cfg
 
 # ROLLUP PLUGINS ######################
 
@@ -40,7 +38,7 @@ rollStatic = (variant) =>
     switch variant
       when 'pug' then rendered = pug.renderFile file
       when 'sass'
-        style = if envRelease then 'compressed' else 'expanded'
+        style = if cfg.envRelease then 'compressed' else 'expanded'
         rendered = (sass.compile file, {style}).css
     'export default ""'
   generateBundle: (options, bundle) ->
@@ -55,9 +53,9 @@ traceExec = (name) ->
   console.log "#{stmp} => #{name} compilation done"
 
 rollExec = (inFile, outFile, name, cb) ->
-  inOpts = {input: "#{webSources}/#{inFile}", plugins: [rollStatic name]}
-  outOpts = {file: "#{dest}/#{outFile}", exports: 'default', format: 'cjs'}
-  if watching
+  inOpts = {input: "#{cfg.webSources}/#{inFile}", plugins: [rollStatic name]}
+  outOpts = {file: "#{cfg.dest}/#{outFile}", exports: 'default', format: 'cjs'}
+  if cfg.watching
     watcher = watch {inOpts..., output: outOpts}
     watcher.on 'event', (event) ->
       if event.code == 'ERROR' then console.log event.error
@@ -72,19 +70,25 @@ rollExec = (inFile, outFile, name, cb) ->
 # ACTION FUNS #########################
 
 checkEnv = (options) ->
-  if options.release then envRelease = true
-  dest = if envRelease then 'docs' else 'dist'
+  cfgpath = './config.coffee'
+  try
+    fse.accessSync cfgpath
+    cfgov = require(cfgpath).cfg
+    for key, value of cfgov
+      cfg[key] = value
+  cfg.envRelease = if options.release? then true else false
+  cfg.watching = false
+  cfg.dest = cfg.dest_path[if cfg.envRelease then 'release' else 'debug']
 
 compileJs = (cb) ->
-  rustCfg = {debug: not envRelease}
   inOpts =
-    input: "#{webSources}/index.coffee"
-    plugins: [rollCoffee(), rust rustCfg]
+    input: "#{cfg.webSources}/index.coffee"
+    plugins: [rollCoffee(), rust {debug: not cfg.envRelease}]
   outOpts =
-    file: "./#{dest}/index.js"
+    file: "./#{cfg.dest}/index.js"
     format: 'iife'
     assetFileNames: 'wasm/[name][extname]'
-    plugins: (if envRelease then [terser()] else [])
+    plugins: (if cfg.envRelease then [terser()] else [])
   bundle = await rollup inOpts
   await bundle.write outOpts
   traceExec 'coffee/wasm'
@@ -96,12 +100,12 @@ compileSass = (cb) -> rollExec 'style.sass', 'style.css', 'sass', cb
 
 createDir = (cb) ->
   try
-    await fse.mkdirs "./#{dest}/static"
-    await fse.copy './static', "./#{dest}/static"
+    await fse.mkdirs "./#{cfg.dest}/static"
+    await fse.copy './static', "./#{cfg.dest}/static"
     cb null, 0
   catch e
     if e.code = 'EEXIST'
-      if not envRelease
+      if not cfg.envRelease
         console.warn 'Warning: \'dist\' already exists'
       cb null, 1
     else cb e, null
@@ -126,46 +130,84 @@ task 'build', 'build the app (core + static + wasm)', (options) ->
       console.log e
     else console.log 'building => done'
 
-task 'clean', 'rm ./dist or ./docs (debug or release)', (options) ->
+task_cleandesc =
+  "rm ./#{cfg.dest_path.debug} or ./#{cfg.dest_path.release} (debug or release)"
+task 'clean', task_cleandesc, (options) ->
   checkEnv options
-  console.log "cleaning `#{dest}`..."
-  rimraf "./#{dest}", (e) ->
+  console.log "cleaning `#{cfg.dest}`..."
+  rimraf "./#{cfg.dest}", (e) ->
     if e? then console.log e
-    else console.log "`#{dest}` removed successfully"
+    else console.log "`#{cfg.dest}` removed successfully"
 
 task 'itch', 'generate the bundle for itch.io', (options) ->
   checkEnv {release: true}
   filepath = "./soe_itch-#{(require './package').version}.zip"
   await fse.access filepath, fse.constants.F_OK, (e) -> if not e? then fse.rmSync filepath
   console.log 'itch building...'
-  building (e, _) ->
-    if e?
-      console.log 'Something went wrong'
-      console.log e
-    else
-      console.log 'zipping...'
-      zip = new admzip()
-      zip.addLocalFolder './docs'
-      zip.writeZip filepath
-      console.log "=====> itch zip ready (#{filepath})"
+  finalStep = ->
+    console.log 'zipping...'
+    zip = new admzip()
+    zip.addLocalFolder cfg.dest
+    zip.writeZip filepath
+    console.log "======> itch zip ready: #{filepath}"
+  try
+    fse.accessSync cfg.dest
+    finalStep()
+  catch
+    building (e, _) ->
+      if e?
+        console.log 'Something went wrong'
+        console.log e
+      else
+        finalStep()
 
 task 'heavy', 'build the nw/electron version', (options) ->
   checkEnv options
   #
-  # TODO
+  # TODO: si le dossier n'existe pas, c'est que l'app n'a pas été compilée
+  #
+  firstStep = try
+    fse.accessSync cfg.dest
+    (cb) -> cb null, 0
+  catch
+    building
+  #
+  #
+  # TODO: copie et renommage du package.json spécial nwjs
+  #
+  sndStep = (cb) ->
+    #
+    #
+    console.log 'not ready (snd step)'
+    #
+    cb null, 0
+    #
+  #
+  #
+  # TODO: compilation du coffee
+  #
   #
   console.log require('./package').version
   #
   #
-  console.log 'not ready'
+  # TODO: lancement de l'app
+  #
+  launchApp = (cb) ->
+    #
+    # TODO
+    #
+    cb null, 0
+    #
+  #
+  (bach.series firstStep, sndStep, launchApp) (e, _) -> if e? then console.log e
   #
 
 task 'serve', 'launch a micro server and watch files', (options) ->
   checkEnv options
-  if envRelease
+  if cfg.envRelease
     console.error 'Impossible to use `serve` in `release` mode!'
   else
-    watching = true
+    cfg.watching = true
     serving = bach.series createDir, compileJs,
       (bach.parallel compileSass, compilePug, launchServer)
     serving (e, _) -> if e? then console.log e
