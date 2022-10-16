@@ -10,7 +10,7 @@
     "serve": "cake serve",
     "test": ""
   },
-  "description": "SOE is a little game built as an experiment for eletron, bevy, wasm, and some other neat stuff",
+  "description": "Jeu de simon utilisant la technologie wasm",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/othelarian/solid-octo-engine"
@@ -27,6 +27,7 @@
     "rollup": "^2.72.0",
     "rollup-plugin-terser": "^7.0.2",
     "sass": "^1.51.0",
-    "serve-static": "^1.15.0"
+    "serve-static": "^1.15.0",
+    "sharp": "^0.31.1"
   }
 }

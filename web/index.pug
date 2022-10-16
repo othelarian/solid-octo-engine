@@ -1,12 +1,31 @@
+- manifest_path = pwa['short-name']+'.webmanifest'
 doctype html
 html
   head
-    title Solid-Octo-Engine
-    meta(charset='UTF-8')
+    title= pwa.name
+    meta(charset='utf-8')
     meta(name='viewport', content='width=device-width, initial-scale=1, user-scalable=no')
+    meta(name='theme-color', content=pwa.theme_color)
     link(rel='stylesheet', href='style.css')
+    link(rel='icon', href='icons/icon_128.png')
+    link(rel='manifest', href=manifest_path)
+    link(rel='apple-touch-icon', href='icons/icon_192.png')
     script(type='text/javascript', src='index.js')
   body(onload='initSOE()')
-    #soe-body
-      #soe-veil
-    #soe-veil
+    #soe-glzone
+    #soe-menu
+      #soe-startup
+        //
+        // TODO: title (icon + titre)
+        //
+        //
+        // TODO: waiting, and then menu
+        //
+        #soe-waiter Veuillez patienter ...
+        //
+        //
+      #soe-score(style='display:none')
+        //
+        // TODO: zone d'affichage des scores
+        //
+        div to be done

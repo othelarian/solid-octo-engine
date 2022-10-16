@@ -11,12 +11,13 @@ rimraf = require 'rimraf'
 rust = require '@wasm-tool/rollup-plugin-rust'
 sass = require 'sass'
 serveStatic = require 'serve-static'
+sharp = require 'sharp'
 { terser } = require 'rollup-plugin-terser'
 
 # OPTIONS #############################
 
-option '-n', '--nostart', 'cancel nwjs start (ONLY for `cake heavy`'
 option '-r', '--release', 'set compilation mode to release'
+option '-f', '--force', 'ONLY FOR PWA: regen all the PWA files'
 
 # GLOBAL VARS #########################
 
@@ -24,11 +25,11 @@ cfg = require('./config.default').cfg
 
 # ROLLUP PLUGINS ######################
 
-rollCoffee = =>
+rollCoffee = (opts = {}) =>
   name: 'rolling-coffee'
   transform: (code, id) ->
     if extname(id) != '.coffee' then return null
-    out = coffee.compile code
+    out = coffee.compile code, opts
     code: out
 
 rollStatic = (variant) =>
@@ -36,7 +37,8 @@ rollStatic = (variant) =>
   name: 'rolling-static'
   transform: (_, file) ->
     switch variant
-      when 'pug' then rendered = pug.renderFile file
+      when 'pug', 'svg'
+        rendered = pug.renderFile file, cfg
       when 'sass'
         style = if cfg.envRelease then 'compressed' else 'expanded'
         rendered = (sass.compile file, {style}).css
@@ -44,17 +46,72 @@ rollStatic = (variant) =>
   generateBundle: (options, bundle) ->
     Object.keys(bundle).forEach (filename) => delete bundle[filename]
     fse.writeFileSync options.file, rendered
+    if variant is 'svg'
+      icsPath = "#{cfg.dest}/icons"
+      sh = sharp "#{icsPath}/icon.svg"
+      resizing = (size) -> await sh.resize(size).toFile "#{icsPath}/icon_#{size}.png"
+      resizing size for size in cfg.pwa.icon_sizes
     return null
+
+# PWA FUNS ############################
+
+pwaIcon = (cb) ->
+  await fse.mkdirs "#{cfg.dest}/icons"
+  inOpts = {input: "#{cfg.pwa.srcPath}/icon.pug", plugins: [rollStatic 'svg']}
+  outOpts = {file: "#{cfg.dest}/icons/icon.svg", exports: 'default', format: 'cjs'}
+  doExec inOpts, outOpts, 'icon', cb
+
+pwaManifest = (cb) ->
+  genFile = "#{cfg.dest}/#{cfg.pwa['short-name']}.webmanifest"
+  srcFile = "#{cfg.pwa.srcPath}/manifest.coffee"
+  coffManifest = await timeDiff genFile, srcFile
+  coffDefault = await timeDiff genFile, 'config.default.coffee'
+  coffCustom = await timeDiff genFile, 'config.coffee'
+  if not cfg.force and coffManifest and coffDefault and coffCustom
+    console.log 'manifest already on the latest version'
+    cb null, 8
+  else
+    console.log 'generating the manifest...'
+    try
+      await fse.writeFile genFile, JSON.stringify require("./#{srcFile}").manifest cfg
+      console.log 'manifest generated'
+      cb null, 8
+    catch e
+      cb e, null
+
+pwaSW = (cb) ->
+  genFile = "#{cfg.dest}/sw.js"
+  srcFile = "#{cfg.pwa.srcPath}/sw.coffee"
+  if not cfg.force and await timeDiff genFile, srcFile
+    console.log 'sw script already on the latest version'
+    cb null, 9
+  else
+    console.log "compiling SW script..."
+    inOpts = {input: srcFile, plugins: [rollCoffee {bare: true}]}
+    outOpts =
+      file: "./#{genFile}"
+      format: 'iife'
+      plugins: (if cfg.envRelease then [terser()] else [])
+    try
+      await (await rollup inOpts).write outOpts
+      console.log 'SW script compiled'
+      cb null, 9
+    catch e
+      cb e, null
 
 # COMMON FUNS #########################
 
-traceExec = (name) ->
-  stmp = new Date().toLocaleString()
-  console.log "#{stmp} => #{name} compilation done"
+timeDiff = (genFile, srcFile) ->
+  getTime = (path) ->
+    try
+      (await fse.stat path).mtimeMs
+    catch
+      0
+  genTime = await getTime genFile
+  srcTime = await getTime srcFile
+  genTime > srcTime
 
-rollExec = (inFile, outFile, name, cb) ->
-  inOpts = {input: "#{cfg.webSources}/#{inFile}", plugins: [rollStatic name]}
-  outOpts = {file: "#{cfg.dest}/#{outFile}", exports: 'default', format: 'cjs'}
+doExec = (inOpts, outOpts, name, cb) ->
   if cfg.watching
     watcher = watch {inOpts..., output: outOpts}
     watcher.on 'event', (event) ->
@@ -66,6 +123,15 @@ rollExec = (inFile, outFile, name, cb) ->
     await toExec.write outOpts
     traceExec name
     cb null, 0
+
+traceExec = (name) ->
+  stmp = new Date().toLocaleString()
+  console.log "#{stmp} => #{name} compilation done"
+
+rollExec = (inFile, outFile, name, cb) ->
+  inOpts = {input: "#{cfg.webSources}/#{inFile}", plugins: [rollStatic name]}
+  outOpts = {file: "#{cfg.dest}/#{outFile}", exports: 'default', format: 'cjs'}
+  doExec inOpts, outOpts, name, cb
 
 # ACTION FUNS #########################
 
@@ -79,11 +145,12 @@ checkEnv = (options) ->
   cfg.envRelease = if options.release? then true else false
   cfg.watching = false
   cfg.dest = cfg.dest_path[if cfg.envRelease then 'release' else 'debug']
+  cfg.force = options.force?
 
 compileJs = (cb) ->
   inOpts =
     input: "#{cfg.webSources}/index.coffee"
-    plugins: [rollCoffee(), rust {debug: not cfg.envRelease}]
+    plugins: [rollCoffee {bare: true}, rust {debug: not cfg.envRelease}]
   outOpts =
     file: "./#{cfg.dest}/index.js"
     format: 'iife'
@@ -95,6 +162,8 @@ compileJs = (cb) ->
   cb null, 0
 
 compilePug = (cb) -> rollExec 'index.pug', 'index.html', 'pug', cb
+
+compilePWA = (cb) -> (bach.series pwaIcon, pwaManifest, pwaSW) cb
 
 compileSass = (cb) -> rollExec 'style.sass', 'style.css', 'sass', cb
 
@@ -117,7 +186,7 @@ launchServer = ->
   http.createServer(app).listen 5000
   console.log 'dev server launched'
 
-building = bach.series createDir, compileSass, compilePug, compileJs
+building = bach.series createDir, compileSass, compilePug, compilePWA, compileJs
 
 # TASKS ###############################
 
@@ -138,6 +207,14 @@ task 'clean', task_cleandesc, (options) ->
   rimraf "./#{cfg.dest}", (e) ->
     if e? then console.log e
     else console.log "`#{cfg.dest}` removed successfully"
+
+task 'icon', 'generate and watch for the icon', (options) ->
+  checkEnv options
+  if cfg.envRelease
+    console.error 'Impossible to use `icon` in `releaase` mode!'
+  else
+    cfg.watching = true
+    pwaIcon (e, _) -> if e? then console.log e
 
 task 'itch', 'generate the bundle for itch.io', (options) ->
   checkEnv {release: true}
@@ -161,46 +238,9 @@ task 'itch', 'generate the bundle for itch.io', (options) ->
       else
         finalStep()
 
-task 'heavy', 'build the nw/electron version', (options) ->
+task 'pwa', 'compile everything for the PWA (icon + manifest + sw)', (options) ->
   checkEnv options
-  #
-  # TODO: si le dossier n'existe pas, c'est que l'app n'a pas été compilée
-  #
-  firstStep = try
-    fse.accessSync cfg.dest
-    (cb) -> cb null, 0
-  catch
-    building
-  #
-  #
-  # TODO: copie et renommage du package.json spécial nwjs
-  #
-  sndStep = (cb) ->
-    #
-    #
-    console.log 'not ready (snd step)'
-    #
-    cb null, 0
-    #
-  #
-  #
-  # TODO: compilation du coffee
-  #
-  #
-  console.log require('./package').version
-  #
-  #
-  # TODO: lancement de l'app
-  #
-  launchApp = (cb) ->
-    #
-    # TODO
-    #
-    cb null, 0
-    #
-  #
-  (bach.series firstStep, sndStep, launchApp) (e, _) -> if e? then console.log e
-  #
+  compilePWA (e, _) -> if e? then console.log e
 
 task 'serve', 'launch a micro server and watch files', (options) ->
   checkEnv options
@@ -208,13 +248,13 @@ task 'serve', 'launch a micro server and watch files', (options) ->
     console.error 'Impossible to use `serve` in `release` mode!'
   else
     cfg.watching = true
-    serving = bach.series createDir, compileJs,
+    serving = bach.series createDir, compilePWA, compileJs,
       (bach.parallel compileSass, compilePug, launchServer)
     serving (e, _) -> if e? then console.log e
 
 task 'static', 'compile sass, and copy html + markdown', (options) ->
   checkEnv options
-  compileStatic = bach.parallel compileSass, compilePug
+  compileStatic = bach.parallel compileSass, compilePug, compilePWA
   (bach.series createDir, compileStatic) (e, _) -> if e? then console.log e
 
 task 'wasm', 'use rollup to compile wasm and coffee', (options) ->

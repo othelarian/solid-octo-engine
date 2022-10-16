@@ -1,0 +1,25 @@
+[package]
+name = "soe"
+version = "0.1.0"
+edition = "2021"
+description = "Jeu de Simon"
+repository = "https://github.com/othelarian/solid-octo-engine"
+authors = ["othelarian <le.maitre.killian@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+opt-level = "z"
+lto = true
+
+[dependencies]
+wam-bindgen = "0.2.80"
+yew = "0.19.3"
+
+[dependencies.web-sys]
+version = "0.3.57"
+features = ["Element"]
+

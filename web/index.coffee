@@ -1,4 +1,4 @@
-#import
+#import core from '../soe/Cargo.toml'
 
 SOE = {
   #
@@ -9,14 +9,14 @@ SOE = {
 }
 
 initSOE = ->
+  if 'serviceWorker' in navigator then navigator.serviceWorker.register 'sw.js'
   #
   # TODO
   #
   console.log 'starting SOE ...'
   #
   #
-  # core => soe-core
-  # veil => soe-veil
+  # soe => soe-core
   #
 
 window.SOE = SOE
