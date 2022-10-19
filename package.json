@@ -19,6 +19,7 @@
     "@wasm-tool/rollup-plugin-rust": "^2.2.2",
     "adm-zip": "^0.5.9",
     "bach": "^1.2.0",
+    "chokidar": "^3.5.3",
     "coffeescript": "^2.7.0",
     "connect": "^3.7.0",
     "fs-extra": "10.1.0",

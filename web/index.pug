@@ -13,19 +13,12 @@ html
     script(type='text/javascript', src='index.js')
   body(onload='initSOE()')
     #soe-glzone
-    #soe-menu
-      #soe-startup
-        //
-        // TODO: title (icon + titre)
-        //
-        //
-        // TODO: waiting, and then menu
-        //
-        #soe-waiter Veuillez patienter ...
-        //
-        //
-      #soe-score(style='display:none')
-        //
-        // TODO: zone d'affichage des scores
-        //
-        div to be done
+    #soe-veil
+      - var logo_width = '120'
+      - var logo_height = '120'
+      include logo.pug
+      #soe-screen
+        .soe-cl-titlebar
+          img(src='icons/icon_128.png')
+          .soe-cl-title Octo#[br]Solid#[br]Engine
+        #soe-menu Veuillez patienter ...

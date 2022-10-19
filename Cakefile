@@ -1,5 +1,6 @@
 admzip = require 'adm-zip'
 bach = require 'bach'
+chokidar = require 'chokidar'
 coffee = require 'coffeescript'
 connect = require 'connect'
 fse = require 'fs-extra'
@@ -32,106 +33,94 @@ rollCoffee = (opts = {}) =>
     out = coffee.compile code, opts
     code: out
 
-rollStatic = (variant) =>
-  rendered = ''
-  name: 'rolling-static'
-  transform: (_, file) ->
-    switch variant
-      when 'pug', 'svg'
-        rendered = pug.renderFile file, cfg
-      when 'sass'
-        style = if cfg.envRelease then 'compressed' else 'expanded'
-        rendered = (sass.compile file, {style}).css
-    'export default ""'
-  generateBundle: (options, bundle) ->
-    Object.keys(bundle).forEach (filename) => delete bundle[filename]
-    fse.writeFileSync options.file, rendered
-    if variant is 'svg'
-      icsPath = "#{cfg.dest}/icons"
-      sh = sharp "#{icsPath}/icon.svg"
-      resizing = (size) -> await sh.resize(size).toFile "#{icsPath}/icon_#{size}.png"
-      resizing size for size in cfg.pwa.icon_sizes
-    return null
-
 # PWA FUNS ############################
 
 pwaIcon = (cb) ->
-  await fse.mkdirs "#{cfg.dest}/icons"
-  inOpts = {input: "#{cfg.pwa.srcPath}/icon.pug", plugins: [rollStatic 'svg']}
-  outOpts = {file: "#{cfg.dest}/icons/icon.svg", exports: 'default', format: 'cjs'}
-  doExec inOpts, outOpts, 'icon', cb
+  await fse.mkdirs cfg.icon.dir
+  runExec 'icon', cb
 
 pwaManifest = (cb) ->
-  genFile = "#{cfg.dest}/#{cfg.pwa['short-name']}.webmanifest"
-  srcFile = "#{cfg.pwa.srcPath}/manifest.coffee"
-  coffManifest = await timeDiff genFile, srcFile
-  coffDefault = await timeDiff genFile, 'config.default.coffee'
-  coffCustom = await timeDiff genFile, 'config.coffee'
+  gen_file = "#{cfg.dest}/#{cfg.pwa['short-name']}.webmanifest"
+  src_file = "#{cfg.pwa.path}/manifest.coffee"
+  coffManifest = await timeDiff gen_file, src_file
+  coffDefault = await timeDiff gen_file, 'config.default.coffee'
+  coffCustom = await timeDiff gen_file, 'config.coffee'
   if not cfg.force and coffManifest and coffDefault and coffCustom
     console.log 'manifest already on the latest version'
     cb null, 8
   else
-    console.log 'generating the manifest...'
     try
-      await fse.writeFile genFile, JSON.stringify require("./#{srcFile}").manifest cfg
-      console.log 'manifest generated'
+      await fse.writeFile gen_file, JSON.stringify require("./#{src_file}").manifest cfg
+      traceExec 'manifest'
       cb null, 8
     catch e
       cb e, null
 
 pwaSW = (cb) ->
-  genFile = "#{cfg.dest}/sw.js"
-  srcFile = "#{cfg.pwa.srcPath}/sw.coffee"
-  if not cfg.force and await timeDiff genFile, srcFile
+  gen_file = cfg.pwa.service_worker.out
+  src_file = cfg.pwa.service_worker.src
+  if not cfg.force and await timeDiff gen_file, src_file
     console.log 'sw script already on the latest version'
     cb null, 9
   else
-    console.log "compiling SW script..."
-    inOpts = {input: srcFile, plugins: [rollCoffee {bare: true}]}
-    outOpts =
-      file: "./#{genFile}"
+    in_opts = {input: src_file, plugins: [rollCoffee {bare: true}]}
+    out_opts =
+      file: "./#{gen_file}"
       format: 'iife'
       plugins: (if cfg.envRelease then [terser()] else [])
     try
-      await (await rollup inOpts).write outOpts
-      console.log 'SW script compiled'
+      await (await rollup in_opts).write out_opts
+      traceExec 'sw'
       cb null, 9
     catch e
       cb e, null
 
 # COMMON FUNS #########################
 
-timeDiff = (genFile, srcFile) ->
+timeDiff = (gen_file, src_file) ->
   getTime = (path) ->
     try
       (await fse.stat path).mtimeMs
     catch
       0
-  genTime = await getTime genFile
-  srcTime = await getTime srcFile
-  genTime > srcTime
+  gen_time = await getTime gen_file
+  src_time = await getTime src_file
+  gen_time > src_time
 
-doExec = (inOpts, outOpts, name, cb) ->
-  if cfg.watching
-    watcher = watch {inOpts..., output: outOpts}
-    watcher.on 'event', (event) ->
-      if event.code == 'ERROR' then console.log event.error
-      else if event.code == 'END' then traceExec name
-    cb null, 0
-  else
-    toExec = await rollup inOpts
-    await toExec.write outOpts
-    traceExec name
-    cb null, 0
+doExec = (in_files, out_file, selected) ->
+  try
+    rendered = switch selected
+      when 'pug', 'icon' then pug.renderFile in_files[0], cfg
+      when 'sass'
+        style = if cfg.envRelease then 'compressed' else 'expanded'
+        (sass.compile in_files, {style}).css
+    fse.writeFileSync out_file, rendered
+    if selected is 'icon'
+      icn_path = cfg.icon.dir
+      sh = sharp cfg.icon.out
+      resizing = (size) -> await sh.resize(size).toFile "#{icn_path}/icon_#{size}.png"
+      resizing size for size in cfg.pwa.icon_sizes
+    traceExec selected
+  catch e
+    console.error "doExec '#{selected}' => Something went wrong!!!!\n\n\n#{e}"
 
 traceExec = (name) ->
   stmp = new Date().toLocaleString()
   console.log "#{stmp} => #{name} compilation done"
 
-rollExec = (inFile, outFile, name, cb) ->
-  inOpts = {input: "#{cfg.webSources}/#{inFile}", plugins: [rollStatic name]}
-  outOpts = {file: "#{cfg.dest}/#{outFile}", exports: 'default', format: 'cjs'}
-  doExec inOpts, outOpts, name, cb
+runExec = (selected, cb) ->
+  [in_files, out_file] = switch selected
+    when 'pug' then [cfg.web.html.src, cfg.web.html.out]
+    when 'icon' then [cfg.icon.src, cfg.icon.out]
+    when 'sass' then [cfg.web.sass.src, cfg.web.sass.out]
+  doExec in_files, out_file, selected
+  if cfg.watching then watchExec in_files, out_file, selected
+  cb null, 11
+
+watchExec = (to_watch, out_file, selected) ->
+  watcher = chokidar.watch to_watch
+  watcher.on 'change', => doExec(to_watch, out_file, selected)
+  watcher.on 'error', (err) => console.log "CHOKIDAR ERROR:\n#{err}"
 
 # ACTION FUNS #########################
 
@@ -145,32 +134,45 @@ checkEnv = (options) ->
   cfg.envRelease = if options.release? then true else false
   cfg.watching = false
   cfg.dest = cfg.dest_path[if cfg.envRelease then 'release' else 'debug']
+  if options.publish then cfg.dest = cfg.dest_path.github
+  outUpdate = (path) ->
+    curr = if path.length is 0 then cfg else
+      tmp = cfg
+      tmp = tmp[p] for p in path
+      tmp
+    for own key, value of curr
+      if typeof curr[key] is 'object' and not Array.isArray curr[key]
+        npath = Array.from path
+        npath.push key
+        outUpdate npath
+      else if key is 'out' or key is 'dir' then curr[key] = "#{cfg.dest}/#{curr[key]}"
+  outUpdate []
   cfg.force = options.force?
 
 compileJs = (cb) ->
-  inOpts =
-    input: "#{cfg.webSources}/index.coffee"
-    plugins: [rollCoffee {bare: true}, rust {debug: not cfg.envRelease}]
-  outOpts =
-    file: "./#{cfg.dest}/index.js"
+  in_opts =
+    input: cfg.web.coffee.src
+    plugins: [rollCoffee({bare: true}), rust {debug: not cfg.envRelease}]
+  out_opts =
+    file: cfg.web.coffee.out
     format: 'iife'
     assetFileNames: 'wasm/[name][extname]'
     plugins: (if cfg.envRelease then [terser()] else [])
-  bundle = await rollup inOpts
-  await bundle.write outOpts
+  bundle = await rollup in_opts
+  await bundle.write out_opts
   traceExec 'coffee/wasm'
   cb null, 0
 
-compilePug = (cb) -> rollExec 'index.pug', 'index.html', 'pug', cb
+compilePug = (cb) -> runExec 'pug', cb
 
 compilePWA = (cb) -> (bach.series pwaIcon, pwaManifest, pwaSW) cb
 
-compileSass = (cb) -> rollExec 'style.sass', 'style.css', 'sass', cb
+compileSass = (cb) -> runExec 'sass', cb
 
 createDir = (cb) ->
   try
-    await fse.mkdirs "./#{cfg.dest}/static"
-    await fse.copy './static', "./#{cfg.dest}/static"
+    await fse.mkdirs "./#{cfg.dest}/#{cfg.static}"
+    await fse.copy "./#{cfg.static}", "./#{cfg.dest}/#{cfg.static}"
     cb null, 0
   catch e
     if e.code = 'EEXIST'
@@ -182,7 +184,7 @@ createDir = (cb) ->
 launchServer = ->
   console.log 'launching server...'
   app = connect()
-  app.use(serveStatic './dist')
+  app.use(serveStatic "./#{cfg.dest}")
   http.createServer(app).listen 5000
   console.log 'dev server launched'
 
@@ -207,6 +209,15 @@ task 'clean', task_cleandesc, (options) ->
   rimraf "./#{cfg.dest}", (e) ->
     if e? then console.log e
     else console.log "`#{cfg.dest}` removed successfully"
+
+task 'github', 'populate `docs` dir for github page', (options) ->
+  checkEnv {releae: true, publish: true}
+  rimraf "./#{cfg.dest}", (e) ->
+    if e? then console.log e
+    else
+      building (e, _) ->
+        if e? then console.log e
+        else console.log 'publishing DONE'
 
 task 'icon', 'generate and watch for the icon', (options) ->
   checkEnv options
@@ -252,7 +263,7 @@ task 'serve', 'launch a micro server and watch files', (options) ->
       (bach.parallel compileSass, compilePug, launchServer)
     serving (e, _) -> if e? then console.log e
 
-task 'static', 'compile sass, and copy html + markdown', (options) ->
+task 'static', 'compile sass, pug, pwa stuff, and copy static files', (options) ->
   checkEnv options
   compileStatic = bach.parallel compileSass, compilePug, compilePWA
   (bach.series createDir, compileStatic) (e, _) -> if e? then console.log e
