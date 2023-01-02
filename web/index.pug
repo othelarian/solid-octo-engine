@@ -1,4 +1,6 @@
 - manifest_path = pwa['short-name']+'.webmanifest'
+- var logo_width = '120'
+- var logo_height = '120'
 doctype html
 html
   head
@@ -14,11 +16,8 @@ html
   body(onload='initSOE()')
     #soe-glzone
     #soe-veil
-      - var logo_width = '120'
-      - var logo_height = '120'
-      include logo.pug
       #soe-screen
         .soe-cl-titlebar
-          img(src='icons/icon_128.png')
-          .soe-cl-title Octo#[br]Solid#[br]Engine
+          include logo.pug
+          .soe-cl-title Solid#[br]Octo#[br]Engine
         #soe-menu Veuillez patienter ...

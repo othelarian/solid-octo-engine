@@ -211,7 +211,7 @@ task 'clean', task_cleandesc, (options) ->
     else console.log "`#{cfg.dest}` removed successfully"
 
 task 'github', 'populate `docs` dir for github page', (options) ->
-  checkEnv {releae: true, publish: true}
+  checkEnv {release: true, publish: true}
   rimraf "./#{cfg.dest}", (e) ->
     if e? then console.log e
     else

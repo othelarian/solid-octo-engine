@@ -6,7 +6,6 @@
 - var corr_a = rad2deg(Math.sin(de_r/int_r))
 - var delta = Math.sqrt(de_r*de_r + de_r*de_r)
 - var qrt_col = ['dodgerblue', 'yellow', 'lime', 'red']
-- viewbox_config = '0 0 '+logo_width+' '+logo_height
 - function deg2rad(deg) { return deg/180*Math.PI; }
 - function rad2deg(rad) { return rad*180/Math.PI; }
 - function cosy(ang, r) { return Math.cos(deg2rad(ang))*r; }
@@ -14,9 +13,9 @@
 - function pos(ang, r) { return (100+cosy(ang, r))+' '+(100-siny(ang, r)); }
 svg(
   xmlns='http://www.w3.org/2000/svg'
-  width='200'
-  height='200'
-  viewBox=viewbox_config
+  width=logo_width
+  height=logo_height
+  viewBox='0 0 200 200'
 )
   circle(cx='100', cy='100', r=ext_r, fill='black')
   - var i = 0

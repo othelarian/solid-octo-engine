@@ -1,41 +1,4 @@
-- var ext_r = 95
-- var th_r = 18
-- var de_r = th_r/2
-- var int_r = ext_r - th_r
-- var mid_r = ext_r - de_r
-- var corr_a = rad2deg(Math.sin(de_r/int_r))
-- var delta = Math.sqrt(de_r*de_r + de_r*de_r)
-- var qrt_col = ['dodgerblue', 'yellow', 'lime', 'red']
-- function deg2rad(deg) { return deg/180*Math.PI; }
-- function rad2deg(rad) { return rad*180/Math.PI; }
-- function cosy(ang, r) { return Math.cos(deg2rad(ang))*r; }
-- function siny(ang, r) { return Math.sin(deg2rad(ang))*r; }
-- function pos(ang, r) { return (100+cosy(ang, r))+' '+(100-siny(ang, r)); }
+- var logo_width = '200'
+- var logo_height = '200'
 doctype xml
-svg(
-  xmlns='http://www.w3.org/2000/svg'
-  width='200'
-  height='200'
-)
-  circle(cx='100', cy='100', r=ext_r, fill='black')
-  - var i = 0
-  each color in qrt_col
-    - curr_fa = 135 - 90*i
-    - curr_la = curr_fa - 90
-    - px = 100+((i==0 || i==2)? 0 : ((i==3)? -1:1))*delta
-    - py = 100+((i==1 || i==3)? 0 : ((i==0)? -1:1))*delta
-    - p = 'M'+px+' '+py
-    - l = 'L'+pos(curr_fa-corr_a, int_r)
-    - a = 'A'+int_r+' '+int_r+' 0 0 1 '+pos(curr_la+corr_a, int_r)
-    path(d=[p, l, a, 'z'].join(' '), fill=color)
-    - i++
-  - p1 = 'M'+pos(45, mid_r)
-  - a1 = 'A'+mid_r+' '+mid_r+' 0 0 0 '+pos(135, mid_r)
-  - l1 = 'L'+pos(-45, mid_r)
-  - a2 = 'A'+mid_r+' '+mid_r+' 0 0 1 '+pos(-135, mid_r)
-  path(d=[p1, a1, l1, a2].join(' '), stroke='grey', stroke-width=th_r-2, fill='none')
-  - p1 = 'M'+pos(-45, mid_r)
-  - a1 = 'A'+mid_r+' '+mid_r+' 0 1 1 '+pos(45, mid_r)
-  - l1 = 'L'+pos(-135, mid_r)
-  path(d=[p1, a1, l1].join(' '), stroke='darkgrey', stroke-width=2, fill='none')
-
+include ../web/logo.pug

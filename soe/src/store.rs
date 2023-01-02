@@ -14,6 +14,8 @@ pub enum StoreInput {
   //
   // TODO
   //
+  InitApp,
+  //
   NoOp
   //
 }
@@ -29,7 +31,8 @@ pub enum StoreOutput {
 pub struct Store {
   //
   ls_active: bool,
-  menu_status: MenuStatus
+  menu_status: MenuStatus,
+  sound: bool
   //
 }
 
@@ -39,30 +42,44 @@ impl Agent for Store {
   type Input = StoreInput;
   type Output = StoreOutput;
 
-  fn create(link: AgentLink<Self>) -> Self {
+  fn create(_link: AgentLink<Self>) -> Self {
     //
     // TODO: check si le ls est actif
     //
     let ls_active = false;
     //
+    let sound = true; // TODO: connecté le son avec le ls
     //
     Self {
       ls_active,
+      sound,
       menu_status: MenuStatus::StartUp
     }
   }
 
-  fn update(&mut self, msg: Self::Message) {
+  fn update(&mut self, _msg: Self::Message) {
     //
     // TODO
     //
     //
   }
 
-  fn handle_input(&mut self, input: Self::Input, id: HandlerId) {
+  fn handle_input(&mut self, input: Self::Input, _id: HandlerId) {
     //
     // TODO
     //
+    match input {
+      //
+      StoreInput:: InitApp => {
+        //
+        // TODO: renvoyer la balle à SoeMenu
+        //
+        //
+      }
+      //
+      StoreInput::NoOp => ()
+      //
+    }
   }
 }
 

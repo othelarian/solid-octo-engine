@@ -1,13 +1,11 @@
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 use yew::prelude::*;
-use yew_agent::use_bridge;
 
 mod menu;
 mod store;
 
-use menu::MenuStatus;
-use store::{Store, StoreInput};
+use menu::SoeMenu;
 
 #[function_component(SoeGame)]
 fn soe_game() -> Html {
@@ -21,59 +19,6 @@ fn soe_game() -> Html {
   //
 }
 
-#[function_component(SoeMenu)]
-fn soe_menu() -> Html {
-  let store = { use_bridge::<Store, _>(|_| ()) };
-  let curr_state = use_state(|| MenuStatus::StartUp);
-  //let init = use_state(|| false);
-  //if !*init { init.set(true); }
-  //
-  // TODO
-  log("reached soe menu");
-  //
-  match *curr_state {
-    MenuStatus::Config => {
-      //
-      // TODO: active / deactive sound
-      // TODO: active / deactive ls
-      // TODO: select color
-      //
-      html! {"this is confgi"}
-      //
-    }
-    MenuStatus::Name => {
-      //
-      // TODO
-      //
-      html! {"name ?"}
-      //
-    }
-    MenuStatus::Score => {
-      //
-      // TODO
-      //
-      html! {"houu! scoring!"}
-      //
-    }
-    MenuStatus::StartUp => {
-      //
-      // TODO
-      //
-      //
-      //
-      html! {
-        <div>
-          <button>{"Jouer !"}</button>
-          <br />
-          <button>{"Config"}</button>
-          <div>
-            <button>{"(sound)"}</button>
-          </div>
-        </div>
-      }
-    }
-  }
-}
 
 struct App { pub menu: Html }
 
