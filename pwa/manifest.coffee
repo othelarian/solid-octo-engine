@@ -15,3 +15,4 @@ exports.manifest = (cfg) ->
   theme_color: cfg.pwa.theme_color
   start_url: cfg.pwa.start_url
   icons: gen_icons
+  scope: cfg.pwa.scope

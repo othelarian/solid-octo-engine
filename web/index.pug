@@ -2,12 +2,13 @@
 - var logo_width = '120'
 - var logo_height = '120'
 doctype html
-html
+html(en='fr')
   head
     title= pwa.name
     meta(charset='utf-8')
     meta(name='viewport', content='width=device-width, initial-scale=1, user-scalable=no')
     meta(name='theme-color', content=pwa.theme_color)
+    meta(name='description', content=pwa.description)
     link(rel='stylesheet', href='style.css')
     link(rel='icon', href='icons/icon_128.png')
     link(rel='manifest', href=manifest_path)
@@ -15,7 +16,8 @@ html
     script(type='text/javascript', src='index.js')
   body(onload='initSOE()')
     #soe-glzone
-    #soe-veil
+      canvas#soe-bevy
+    #soe-veil(style="display:none")
       #soe-screen
         .soe-cl-titlebar
           include logo.pug

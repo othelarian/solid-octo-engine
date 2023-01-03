@@ -7,13 +7,12 @@ fse = require 'fs-extra'
 http = require 'http'
 { extname } = require 'path'
 pug = require 'pug'
-rimraf = require 'rimraf'
 { rollup, watch } = require 'rollup'
 rust = require '@wasm-tool/rollup-plugin-rust'
 sass = require 'sass'
 serveStatic = require 'serve-static'
 sharp = require 'sharp'
-{ terser } = require 'rollup-plugin-terser'
+{ terser } = require '@rollup/plugin-terser'
 
 # OPTIONS #############################
 
@@ -206,13 +205,13 @@ task_cleandesc =
 task 'clean', task_cleandesc, (options) ->
   checkEnv options
   console.log "cleaning `#{cfg.dest}`..."
-  rimraf "./#{cfg.dest}", (e) ->
+  fse.remove "./#{cfg.dest}", (e) ->
     if e? then console.log e
     else console.log "`#{cfg.dest}` removed successfully"
 
 task 'github', 'populate `docs` dir for github page', (options) ->
   checkEnv {release: true, publish: true}
-  rimraf "./#{cfg.dest}", (e) ->
+  fse.remove "./#{cfg.dest}", (e) ->
     if e? then console.log e
     else
       building (e, _) ->

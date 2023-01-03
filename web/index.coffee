@@ -14,9 +14,11 @@ SOE = {
 }
 
 initSOE = ->
-  if 'serviceWorker' in navigator then navigator.serviceWorker.register 'sw.js'
+  if navigator.serviceWorker?
+    navigator.serviceWorker.register 'sw.js', {scope: '/solid-octo-engine/'}
   app = await core()
-  app.start_soe getId 'soe-glzone'
+  glzone = getId 'soe-glzone'
+  app.start_soe()
 
 window.SOE = SOE
 

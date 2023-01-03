@@ -12,7 +12,7 @@ exports.cfg =
     src: ["#{pwapath}/icon.pug", "#{webpath}/logo.pug"]
     out: "#{icndir}/icon.svg"
   pwa:
-    background_color: 'white'
+    background_color: '#fff'
     description: 'Un jeu de Simon, mais sur internet'
     display: 'standalone'
     icon_sizes: [128, 192, 256, 512]
@@ -24,7 +24,8 @@ exports.cfg =
     service_worker: {src: "#{pwapath}/sw.coffee", out: 'sw.js'}
     'short-name': 'soe'
     start_url: 'index.html'
-    theme_color: 'white'
+    theme_color: '#fff'
+    scope: '/solid-octo-engine/'
   static: 'static'
   web:
     html:

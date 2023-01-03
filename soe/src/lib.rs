@@ -1,54 +1,100 @@
+use bevy::prelude::*;
+use bevy::render::camera::ScalingMode;
 use wasm_bindgen::prelude::*;
-use web_sys::Element;
-use yew::prelude::*;
 
-mod menu;
-mod store;
 
-use menu::SoeMenu;
+struct CoffeePlugin;
 
-#[function_component(SoeGame)]
-fn soe_game() -> Html {
+impl Plugin for CoffeePlugin {
+  fn build(&self, app: &mut App) {
+    //
+    // TODO
+    //
+    //app.insert_resource()
+    //
+  }
+}
+
+/*
+struct ActionsPlugin;
+
+impl Plugin for ActionsPlugin {
+  fn build(&self, app: &mut App) {
+    //
+    // TODO
+    //
+    app.init_resource::<Actions>().add_system_set(
+      SystemSet
+    //
+  }
+}
+*/
+
+fn setup(mut commands: Commands) {
+  let mut cam = Camera2dBundle::default();
+  cam.projection.scaling_mode = ScalingMode::FixedVertical(10.);
+  commands.spawn_bundle(cam);
+}
+
+#[derive(Component)]
+struct Spriter;
+
+fn spawn_simon(mut commands: Commands) {
   //
+  // TODO: build simon here
+  //
+  commands.spawn_bundle(SpriteBundle {
+    sprite: Sprite {
+      color:  Color::rgb(0., 1., 0.),
+      custom_size: Some(Vec2::new(1., 1.)),
+      ..default()
+    },
+    ..default()
+  })
+  .insert(Spriter);
+}
+
+fn moving(time: Res<Time>, mut spriters: Query<&mut Transform, With<Spriter>>) {
+  //
+  for mut spriter in &mut spriters {
+    spriter.rotate_z(4. * time.delta_seconds());
+  }
+  //
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+enum GameState {
   //
   // TODO
   //
-  log("reach soe_game");
+  Static,
+  Rotating
   //
-  html! {"oupsie"}
-  //
-}
-
-
-struct App { pub menu: Html }
-
-impl Component for App {
-  type Message = ();
-  type Properties = ();
-
-  fn create(_ctx: &Context<Self>) -> Self {
-    clearMenu();
-    let menu = create_portal(
-      html!{<SoeMenu />},
-      gloo_utils::document().get_element_by_id("soe-menu").unwrap()
-    );
-    Self { menu }
-  }
-
-  fn view(&self, _ctx: &Context<Self>) -> Html {
-    html! {<>{self.menu.clone()}<SoeGame /></>}
-  }
 }
 
 #[wasm_bindgen]
-extern "C" {
-  #[wasm_bindgen(js_namespace = SOE)]
-  fn clearMenu();
-
-  #[wasm_bindgen(js_namespace = console)]
-  fn log(s: &str);
+pub fn start_soe() {
+  App::new()
+    .add_state(GameState::Rotating)
+    .insert_resource(ClearColor(Color::rgb(1., 1., 1.)))
+    .add_plugins(DefaultPlugins.set( WindowPlugin {
+      window: WindowDescriptor {
+        fit_canvas_to_parent: true,
+        canvas: Some("#soe-bevy".to_owned()),
+        ..Default::default()
+      },
+      ..default()
+    }))
+    .add_plugin(CoffeePlugin)
+    .add_startup_system(setup)
+    .add_startup_system(spawn_simon)
+    //
+    .add_system_set(SystemSet::on_update(GameState::Rotating).with_system(moving))
+    //
+    .run();
+  //
+  // TODO
+  //
+  //
 }
-
-#[wasm_bindgen]
-pub fn start_soe(game: Element) { yew::start_app_in_element::<App>(game); }
 
